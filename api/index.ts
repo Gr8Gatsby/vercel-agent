@@ -7,19 +7,16 @@ app.use(express.json());
 
 // Agent card endpoint
 app.get("/.well-known/agent.json", (req, res) => {
+  const host = req.get('host');
+  const protocol = req.protocol;
+  const baseUrl = `${protocol}://${host}`;
+  
   res.json({
-    "@context": "https://google.github.io/A2A/specification/agent-card/",
-    "@type": "Agent",
     "id": "chart-agent-001",
     "name": "Chart Agent",
     "description": "This agent creates charts based on provided data and specifications.",
-    "capabilities": [
-      {
-        "@type": "Capability",
-        "name": "chart-generation",
-        "description": "Generates various types of charts using Chart.js via QuickChart.io"
-      }
-    ],
+    "endpoint": `${baseUrl}/tasks/send`,
+    "capabilities": ["chart-generation"],
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -53,10 +50,6 @@ app.get("/.well-known/agent.json", (req, res) => {
         }
       },
       "required": ["chartImage"]
-    },
-    "endpoint": {
-      "@type": "Endpoint",
-      "url": "/tasks/send"
     }
   });
 });
