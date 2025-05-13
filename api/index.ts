@@ -11,47 +11,20 @@ app.get("/.well-known/agent.json", (req, res) => {
   const protocol = req.protocol;
   const baseUrl = `${protocol}://${host}`;
   
-  res.json({
-    "id": "chart-agent-001",
-    "name": "Chart Agent",
-    "description": "This agent creates charts based on provided data and specifications.",
-    "endpoint": `${baseUrl}/tasks/send`,
-    "capabilities": ["chart-generation"],
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "chartType": { 
-          "type": "string", 
-          "description": "Type of chart to generate (e.g., 'bar', 'line')"
-        },
-        "data": { 
-          "type": "array", 
-          "items": { "type": "object" }, 
-          "description": "Data for the chart" 
-        },
-        "options": { 
-          "type": "object", 
-          "description": "Additional chart options" 
-        }
-      },
-      "required": ["chartType", "data"]
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "chartImage": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the generated chart image"
-        },
-        "message": {
-          "type": "string",
-          "description": "Status message about the chart generation"
-        }
-      },
-      "required": ["chartImage"]
+  const agentCard = {
+    id: "chart-agent-001",
+    name: "Chart Agent",
+    description: "This agent creates charts based on provided data and specifications.",
+    endpoint: `${baseUrl}/tasks/send`,
+    capabilities: ["chart-generation"],
+    skills: ["data-visualization"],
+    contact: "https://github.com/your-org/chart-agent",
+    authentication: {
+      type: "none"
     }
-  });
+  };
+  
+  res.json(agentCard);
 });
 
 // Task handling endpoint
