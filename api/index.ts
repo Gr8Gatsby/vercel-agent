@@ -57,7 +57,7 @@ app.post("/tasks/send", async (req, res) => {
     const chartJsConfig = {
       type: chartType.toLowerCase(),
       data: {
-        labels: data.map(d => d.label || d.month || d.category || 'Unknown'),
+        labels: data.map(d => d.date || d.label || d.month || d.category || 'Unknown'),
         datasets: [{
           label: options.title || 'Dataset',
           data: data.map(d => d.value || d.sales || 0),
