@@ -16,7 +16,7 @@ app.get("/.well-known/agent.json", (req, res) => {
     id: "chart-agent-001",
     name: "Chart Agent",
     description: "This agent creates charts based on provided data and specifications, returning both a URL and embedded Base64 PNG.",
-    endpoint: `${baseUrl}/tasks/send`,
+    endpoint: `${baseUrl}`,
     capabilities: ["chart-generation"],
     skills: ["data-visualization", "png-generation"],
     contact: "https://github.com/your-org/chart-agent",
