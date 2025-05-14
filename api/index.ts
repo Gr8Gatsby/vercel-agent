@@ -1,5 +1,6 @@
 const express = require("express");
 const QuickChart = require('quickchart-js');
+// const fetch = require('node-fetch'); // Use global fetch if available (Node 18+)
 const app = express();
 
 // Middleware to parse JSON bodies
@@ -14,10 +15,10 @@ app.get("/.well-known/agent.json", (req, res) => {
   const agentCard = {
     id: "chart-agent-001",
     name: "Chart Agent",
-    description: "This agent creates charts based on provided data and specifications.",
-    endpoint: `${baseUrl}`,
+    description: "This agent creates charts based on provided data and specifications, returning both a URL and embedded SVG.",
+    endpoint: `${baseUrl}`, // Base endpoint for A2A client
     capabilities: ["chart-generation"],
-    skills: ["data-visualization"],
+    skills: ["data-visualization", "svg-embedding"],
     contact: "https://github.com/your-org/chart-agent",
     authentication: {
       type: "none"
@@ -27,8 +28,11 @@ app.get("/.well-known/agent.json", (req, res) => {
   res.json(agentCard);
 });
 
-// Task handling endpoint
-app.post("/tasks/send", async (req, res) => {
+// Create a router for A2A specific endpoints
+const a2aRouter = express.Router();
+
+// Task handling endpoint, now under /a2a/
+a2aRouter.post("/tasks/send", async (req, res) => {
   const { task } = req.body;
   
   if (!task || !task.capability || task.capability !== "chart-generation") {
@@ -41,9 +45,12 @@ app.post("/tasks/send", async (req, res) => {
   }
 
   try {
-    const inputData = task.input?.parts?.[0]?.data;
+    if (!task.input || !Array.isArray(task.input.parts) || task.input.parts.length === 0) {
+      throw new Error("Input message or parts are missing in the task.");
+    }
+    const inputData = task.input.parts[0]?.data;
     if (!inputData || !inputData.chartType || !inputData.data) {
-      throw new Error("Missing required fields (chartType, data) in input data");
+      throw new Error("Missing required fields (chartType, data) in input data part.");
     }
 
     const { chartType, data, options = {} } = inputData;
@@ -57,11 +64,11 @@ app.post("/tasks/send", async (req, res) => {
         datasets: [{
           label: options.title || 'Dataset',
           data: data.map(d => d.value || d.sales || 0),
-          backgroundColor: chartType === 'bar' ? 'rgba(75, 192, 192, 0.2)' : undefined,
+          backgroundColor: chartType.toLowerCase() === 'bar' ? 'rgba(75, 192, 192, 0.2)' : undefined,
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1,
-          fill: chartType === 'line' ? false : undefined,
-          tension: chartType === 'line' ? 0.1 : undefined,
+          fill: chartType.toLowerCase() === 'line' ? false : undefined,
+          tension: chartType.toLowerCase() === 'line' ? 0.1 : undefined,
         }]
       },
       options: {
@@ -94,7 +101,7 @@ app.post("/tasks/send", async (req, res) => {
             }
           }
         },
-        ...options
+        ...options // Spread other Chart.js options from input
       }
     };
 
@@ -106,27 +113,43 @@ app.post("/tasks/send", async (req, res) => {
 
     const chartUrl = await chart.getShortUrl();
     if (!chartUrl) {
-      throw new Error("Failed to generate chart URL");
+      throw new Error("Failed to generate chart URL from QuickChart.io.");
     }
+
+    const svgResponse = await fetch(chartUrl);
+    if (!svgResponse.ok) {
+      throw new Error(`Failed to download chart SVG: ${svgResponse.statusText}`);
+    }
+    const svgContent = await svgResponse.text();
 
     const responseTask = {
       "@context": "https://google.github.io/A2A/specification/task/",
       "@type": "Task",
       "status": "completed",
-      "result": {
-        "parts": [{
-          "type": "data",
-          "mimeType": "application/json",
-          "data": {
-            "chartImage": chartUrl,
-            "message": "Chart generated successfully"
+      "result": { 
+        "id": `msg-${Date.now()}`,
+        "role": "agent",
+        "parts": [
+          {
+            "type": "data",
+            "mimeType": "application/json",
+            "data": {
+              "chartImage": chartUrl, 
+              "message": "Chart generated successfully. SVG data is in a separate part."
+            }
+          },
+          {
+            "type": "data",
+            "mimeType": "image/svg+xml",
+            "data": svgContent 
           }
-        }]
+        ]
       }
     };
 
     res.status(200).json(responseTask);
   } catch (error) {
+    console.error("Error in task processing:", error);
     res.status(500).json({
       "@context": "https://google.github.io/A2A/specification/task/",
       "@type": "Task",
@@ -136,7 +159,8 @@ app.post("/tasks/send", async (req, res) => {
   }
 });
 
-// Health check endpoint
+app.use("/a2a", a2aRouter);
+
 app.get("/", (req, res) => res.send("A2A Chart Generation Agent is running"));
 
 const port = process.env.PORT || 3000;
