@@ -16,7 +16,7 @@ app.get("/.well-known/agent.json", (req, res) => {
     id: "chart-agent-001",
     name: "Chart Agent",
     description: "This agent creates charts based on provided data and specifications, returning both a URL and embedded SVG.",
-    endpoint: `${baseUrl}`, // Base endpoint for A2A client
+    endpoint: `${baseUrl}`,
     capabilities: ["chart-generation"],
     skills: ["data-visualization", "svg-embedding"],
     contact: "https://github.com/your-org/chart-agent",
@@ -28,11 +28,8 @@ app.get("/.well-known/agent.json", (req, res) => {
   res.json(agentCard);
 });
 
-// Create a router for A2A specific endpoints
-const a2aRouter = express.Router();
-
-// Task handling endpoint, now under /a2a/
-a2aRouter.post("/tasks/send", async (req, res) => {
+// Task handling endpoint, now directly on app
+app.post("/tasks/send", async (req, res) => {
   const { task } = req.body;
   
   if (!task || !task.capability || task.capability !== "chart-generation") {
@@ -159,8 +156,7 @@ a2aRouter.post("/tasks/send", async (req, res) => {
   }
 });
 
-app.use("/a2a", a2aRouter);
-
+// Health check endpoint
 app.get("/", (req, res) => res.send("A2A Chart Generation Agent is running"));
 
 const port = process.env.PORT || 3000;
