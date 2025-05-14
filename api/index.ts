@@ -15,10 +15,10 @@ app.get("/.well-known/agent.json", (req, res) => {
   const agentCard = {
     id: "chart-agent-001",
     name: "Chart Agent",
-    description: "This agent creates charts based on provided data and specifications, returning both a URL and embedded SVG.",
-    endpoint: `${baseUrl}`,
+    description: "This agent creates charts based on provided data and specifications, returning both a URL and embedded Base64 PNG.",
+    endpoint: `${baseUrl}/tasks/send`,
     capabilities: ["chart-generation"],
-    skills: ["data-visualization", "svg-embedding"],
+    skills: ["data-visualization", "png-generation"],
     contact: "https://github.com/your-org/chart-agent",
     authentication: {
       type: "none"
@@ -70,7 +70,9 @@ app.post("/tasks/send", async (req, res) => {
       },
       options: {
         responsive: false,
-        animation: false,
+        animation: false, // No animation for static images
+        // Ensure a background color for PNG if transparency isn't desired or handled well by QuickChart
+        // backgroundColor: options.backgroundColor || 'white', // Example: default to white
         plugins: {
           title: { 
             display: !!options.title, 
@@ -106,18 +108,23 @@ app.post("/tasks/send", async (req, res) => {
     chart.setConfig(chartJsConfig);
     chart.setWidth(chartWidth);
     chart.setHeight(chartHeight);
-    chart.setFormat('svg');
+    chart.setFormat('png'); // Request PNG format
+    // chart.setBackgroundColor('transparent'); // If transparent PNG is desired and supported
 
     const chartUrl = await chart.getShortUrl();
     if (!chartUrl) {
       throw new Error("Failed to generate chart URL from QuickChart.io.");
     }
 
-    const svgResponse = await fetch(chartUrl);
-    if (!svgResponse.ok) {
-      throw new Error(`Failed to download chart SVG: ${svgResponse.statusText}`);
+    // Download the PNG content
+    const pngResponse = await fetch(chartUrl);
+    if (!pngResponse.ok) {
+      throw new Error(`Failed to download chart PNG: ${pngResponse.statusText}`);
     }
-    const svgContent = await svgResponse.text();
+    // Get response as an ArrayBuffer, then convert to Buffer for Base64 encoding
+    const imageArrayBuffer = await pngResponse.arrayBuffer();
+    const imageBuffer = Buffer.from(imageArrayBuffer);
+    const base64PngContent = imageBuffer.toString('base64');
 
     const responseTask = {
       "@context": "https://google.github.io/A2A/specification/task/",
@@ -131,14 +138,14 @@ app.post("/tasks/send", async (req, res) => {
             "type": "data",
             "mimeType": "application/json",
             "data": {
-              "chartImage": chartUrl, 
-              "message": "Chart generated successfully. SVG data is in a separate part."
+              "chartImage": chartUrl, // URL to the chart on QuickChart.io
+              "message": "Chart generated successfully. Base64 PNG data is in a separate part."
             }
           },
           {
             "type": "data",
-            "mimeType": "image/svg+xml",
-            "data": svgContent 
+            "mimeType": "image/png", // Set MIME type to image/png
+            "data": base64PngContent // The Base64 encoded PNG string
           }
         ]
       }
